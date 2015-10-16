@@ -22,7 +22,7 @@ external/medit/rebar.rbr
 bbw/examples/*-volume.dmat
 bbw/examples/*-volume.mesh
 convertmesh/convertmesh
-uprigh/upright
+upright/upright
 principal_curvature/curvature
 skeleton-builder/skeleton_builder
 skeleton-poser/skeleton-poser
