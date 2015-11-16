@@ -32,15 +32,15 @@ IF (WIN32)
 ELSE (WIN32)
 
 FIND_PATH(ANT_TWEAK_BAR_INCLUDE_DIR AntTweakBar.h
-      PATHS
-	    ${LIBIGL_INCLUDE_DIR}/../external/AntTweakBar/include/
-      ${PROJECT_SOURCE_DIR}/../../external/AntTweakBar/include/
-      ${PROJECT_SOURCE_DIR}/../external/AntTweakBar/include/
-			${PROJECT_SOURCE_DIR}/external/AntTweakBar/include/
-      /usr/local/include
-      /usr/X11/include
-      /usr/include
-      NO_DEFAULT_PATH)
+  PATHS
+  ${LIBIGL_INCLUDE_DIR}/../external/AntTweakBar/include/
+  ${PROJECT_SOURCE_DIR}/../../external/AntTweakBar/include/
+  ${PROJECT_SOURCE_DIR}/../external/AntTweakBar/include/
+  ${PROJECT_SOURCE_DIR}/external/AntTweakBar/include/
+  /usr/local/include
+  /usr/X11/include
+  /usr/include
+  NO_DEFAULT_PATH)
 
 FIND_LIBRARY( ANT_TWEAK_BAR_LIBRARY AntTweakBar
   PATHS
@@ -67,7 +67,6 @@ IF (ANT_TWEAK_BAR_INCLUDE_DIR AND ANT_TWEAK_BAR_LIBRARY)
 	SET(ANTTWEAKBAR_FOUND "YES")
 ENDIF (ANT_TWEAK_BAR_INCLUDE_DIR AND ANT_TWEAK_BAR_LIBRARY)
 
-
 set(ANT_TWEAK_BAR_INCLUDE_DIR ${ANT_TWEAK_BAR_INCLUDE_DIR} ${ANT_TWEAK_BAR_INCLUDE_DIR}/../src/)
 
 # message(FATAL_ERROR ${ANT_TWEAK_BAR_LIBRARY})
@@ -81,3 +80,8 @@ else(ANT_TWEAK_BAR_INCLUDE_DIR AND ANT_TWEAK_BAR_LIBRARY)
 
 
 endif(ANT_TWEAK_BAR_INCLUDE_DIR AND ANT_TWEAK_BAR_LIBRARY)
+
+FILE(GLOB 
+  ANT_TWEAK_BAR_SOURCES 
+  ${ANT_TWEAK_BAR_INCLUDE_DIR}/../src/*.c
+  ${ANT_TWEAK_BAR_INCLUDE_DIR}/../src/*.cpp)

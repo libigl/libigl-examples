@@ -23,6 +23,8 @@ tutorial](libigl.github.io/libigl/tutorial/tutorial.html).
 #### Some:
 
 - embree
+  - ispc
+  - tbb
 - mosek (optional)
 - tetgen
 - matlab
@@ -35,7 +37,30 @@ but still included. However, I'd recommend replacing it with a [modified
 glut](https://github.com/alecjacobson/glut) that supports scroll wheel and the
 command ⌘ key. 
 
+### AntTweakBar
+
+I'd recommend installing AntTweakBar as a static library. You can do this from
+with then `libigl/external/AntTweakBar` directory using:
+
+    make -C [libigl]/external/AntTweakBar/src -f Makefile.osx
+
+### Embree
+
+I'd recommend installing Embree via the `libigl/external/embree` submodule.
+Travel there and follow the usual cmake build:
+
+    cd [libigl]/external/embree
+    mkdir build
+    cd build
+    cmake ..
+    make
+
 ## Compilation
+
+### Make
+
+> This is hopefully subject to change as I update examples to be built with
+> cmake.
 
 Each example directory is independent and be compiled using:
 
@@ -45,11 +70,13 @@ You can also try to compile all examples by simply issuing:
 
     make
 
-## Running
+### Cmake
 
-Most examples will expect you to be in their respect directory and execute the
-`example` binary. For example,
+Some examples now use cmake to build. Compile the dependencies above and then
+issue:
 
-    cd embree/
-    ./example
-
+   cd [example]
+   mkdir build
+   cd build
+   cmake ..
+   make
