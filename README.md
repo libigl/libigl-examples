@@ -42,7 +42,7 @@ command ⌘ key.
 I'd recommend installing AntTweakBar as a static library. You can do this from
 with then `libigl/external/AntTweakBar` directory using:
 
-    make -C [libigl]/external/AntTweakBar/src -f Makefile.osx
+    make -C [libigl]/external/AntTweakBar/src -f Makefile.osx.igl
 
 ### Embree
 
