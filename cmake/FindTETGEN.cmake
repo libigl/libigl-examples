@@ -6,6 +6,7 @@
 #  TETGEN_SOURCES - the TETGEN source files
 
 FIND_PATH(TETGEN_INCLUDE_DIR tetgen.h
+   ${LIBIGL_INCLUDE_DIR}/../external/tetgen/
    ${PROJECT_SOURCE_DIR}/../libigl/external/tetgen/
    ${PROJECT_SOURCE_DIR}/../../external/tetgen/
    ${PROJECT_SOURCE_DIR}/../external/tetgen/

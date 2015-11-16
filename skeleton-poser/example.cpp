@@ -1,5 +1,4 @@
 #include <igl/Camera.h>
-#include <igl/opengl2/MouseController.h>
 #include <igl/REDRUM.h>
 #include <igl/STR.h>
 #include <igl/barycenter.h>
@@ -8,11 +7,6 @@
 #include <igl/boundary_facets.h>
 #include <igl/centroid.h>
 #include <igl/colon.h>
-#include <igl/opengl2/draw_beach_ball.h>
-#include <igl/opengl2/draw_floor.h>
-#include <igl/opengl2/draw_mesh.h>
-#include <igl/opengl2/draw_skeleton_3d.h>
-#include <igl/opengl2/draw_skeleton_vector_graphics.h>
 #include <igl/forward_kinematics.h>
 #include <igl/get_seconds.h>
 #include <igl/lbs_matrix.h>
@@ -26,7 +20,6 @@
 #include <igl/readTGF.h>
 #include <igl/read_triangle_mesh.h>
 #include <igl/remove_unreferenced.h>
-#include <igl/opengl/report_gl_error.h>
 #include <igl/snap_to_canonical_view_quat.h>
 #include <igl/snap_to_fixed_up.h>
 #include <igl/trackball.h>
@@ -38,11 +31,24 @@
 #include <igl/writeOBJ.h>
 #include <igl/writeOFF.h>
 #include <igl/writeTGF.h>
+
 #include <igl/anttweakbar/ReAntTweakBar.h>
+
 #include <igl/bbw/bbw.h>
-#include <igl/cgal/remesh_self_intersections.h>
-#include <igl/tetgen/mesh_with_skeleton.h>
-#include <igl/tetgen/tetrahedralize.h>
+
+#include <igl/copyleft/cgal/remesh_self_intersections.h>
+
+#include <igl/opengl/report_gl_error.h>
+
+#include <igl/opengl2/MouseController.h>
+#include <igl/opengl2/draw_beach_ball.h>
+#include <igl/opengl2/draw_floor.h>
+#include <igl/opengl2/draw_mesh.h>
+#include <igl/opengl2/draw_skeleton_3d.h>
+#include <igl/opengl2/draw_skeleton_vector_graphics.h>
+
+#include <igl/copyleft/tetgen/mesh_with_skeleton.h>
+#include <igl/copyleft/tetgen/tetrahedralize.h>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -158,7 +164,7 @@ void TW_CALL no_op(const void * /*value*/, void * /*clientData*/)
 {
 }
 
-void TW_CALL set_rotation_type(const void * value, void * clientData)
+void TW_CALL set_rotation_type(const void * value, void * /*clientData*/)
 {
   using namespace Eigen;
   using namespace std;
@@ -176,7 +182,7 @@ void TW_CALL set_rotation_type(const void * value, void * clientData)
     canim.is_animating = true;
   }
 }
-void TW_CALL get_rotation_type(void * value, void *clientData)
+void TW_CALL get_rotation_type(void * value, void * /*clientData*/)
 {
   RotationType * rt = (RotationType *)(value);
   *rt = rotation_type;
@@ -763,6 +769,8 @@ bool clean(
   Eigen::MatrixXi & CF)
 {
   using namespace igl;
+  using namespace igl::copyleft::tetgen;
+  using namespace igl::copyleft::cgal;
   using namespace Eigen;
   using namespace std;
   {
@@ -771,7 +779,7 @@ bool clean(
 #ifdef VERBOSE
     cout<<"remesh_self_intersections"<<endl;
 #endif
-    igl::cgal::remesh_self_intersections(V,F,{},CV,CF,_1,_2,IM);
+    remesh_self_intersections(V,F,{},CV,CF,_1,_2,IM);
     for_each(CF.data(),CF.data()+CF.size(),[&IM](int & a){a=IM(a);});
     MatrixXd oldCV = CV;
     MatrixXi oldCF = CF;
@@ -787,7 +795,7 @@ bool clean(
 #ifdef VERBOSE
     cout<<"tetrahedralize"<<endl;
 #endif
-    if(igl::tetgen::tetrahedralize(CV,CF,"cYpC",TV,TT,_1) != 0)
+    if(tetrahedralize(CV,CF,"cYpC",TV,TT,_1) != 0)
     {
       cout<<REDRUM("CDT failed.")<<endl;
       return false;
@@ -829,6 +837,7 @@ bool robust_weights(
   using namespace igl;
   using namespace Eigen;
   using namespace std;
+  using namespace igl::copyleft::tetgen;
   // clean mesh
   MatrixXd CV;
   MatrixXi CF;
@@ -844,7 +853,7 @@ bool robust_weights(
 #ifdef VERBOSE
     cout<<"mesh_with_skeleton"<<endl;
 #endif
-    if(!igl::tetgen::mesh_with_skeleton(CV,CF,C,{},BE,{},10,"pq1.5Y",TV,TT,_1))
+    if(!mesh_with_skeleton(CV,CF,C,{},BE,{},10,"pq1.5Y",TV,TT,_1))
     {
       cout<<REDRUM("tetgen failed.")<<endl;
       return false;
@@ -886,6 +895,7 @@ bool robust_weights(
   bbw_data.qp_solver = igl::bbw::QP_SOLVER_IGL_ACTIVE_SET;
   bbw_data.active_set_params.max_iter = 4;
 #else
+  cout<<"using mosek..."<<endl;
   bbw_data.mosek_data.douparam[MSK_DPAR_INTPNT_TOL_REL_GAP]=1e-14;
   bbw_data.qp_solver = igl::bbw::QP_SOLVER_MOSEK;
 #endif

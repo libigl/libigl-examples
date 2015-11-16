@@ -13,12 +13,32 @@ include_directories( "${EIGEN_INCLUDE_DIR}" )
 # Must be found before trying to find libraries in libigl/external
 find_package(LIBIGL REQUIRED)
 include_directories( "${LIBIGL_INCLUDE_DIR}" )
-find_package(EMBREE REQUIRED)
-include_directories( "${EMBREE_INCLUDE_DIR}" )
 find_package(ANTTWEAKBAR REQUIRED)
 include_directories( ${ANT_TWEAK_BAR_INCLUDE_DIR} )
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
+
+find_package(CGAL REQUIRED)
+include(${CGAL_USE_FILE})
+# CGAL's monkeying with all of the flags. Rather than change the CGAL_USE_FILE
+# just get ride of this flag.
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  remove_cxx_flag("-stdlib=libc++")
+endif()
+
+find_package(MOSEK QUIET)
+if(MOSEK_FOUND)
+  include_directories( ${MOSEK_INCLUDE_DIR} )
+else(MOSEK_FOUND)
+  add_definitions(-DIGL_NO_MOSEK)
+  if(LIBIGL_USE_STATIC_LIBRARY)
+    set(LIBIGLMOSEK_LIBRARY "")
+  endif(LIBIGL_USE_STATIC_LIBRARY)
+  set(MOSEK_LIBRARIES "")
+endif(MOSEK_FOUND)
+
+find_package(TETGEN REQUIRED)
+include_directories( ${TETGEN_INCLUDE_DIR})
 
 link_directories(
   /usr/local/lib
@@ -30,11 +50,11 @@ link_directories(
 set(LIBS 
   ${LIBIGL_LIBRARIES} 
   ${OPENGL_LIBRARIES} 
+  ${MOSEK_LIBRARIES} 
   ${GLUT_LIBRARIES}
-  ${EMBREE_LIBRARIES}
   ${ANT_TWEAK_BAR_LIBRARY}
 )
 
 FILE(GLOB SRCFILES *.cpp)
-add_executable(skeleton_builder ${SRCFILES})
-target_link_libraries(skeleton_builder ${LIBS})
+add_executable(skeleton_poser ${SRCFILES} ${TETGEN_SOURCES})
+target_link_libraries(skeleton_poser ${LIBS})

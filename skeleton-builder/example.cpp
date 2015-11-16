@@ -143,7 +143,7 @@ void TW_CALL no_op(const void * /*value*/, void * /*clientData*/)
 {
 }
 
-void TW_CALL set_rotation_type(const void * value, void * clientData)
+void TW_CALL set_rotation_type(const void * value, void * /*clientData*/)
 {
   using namespace Eigen;
   using namespace std;
@@ -161,7 +161,7 @@ void TW_CALL set_rotation_type(const void * value, void * clientData)
     is_animating = true;
   }
 }
-void TW_CALL get_rotation_type(void * value, void *clientData)
+void TW_CALL get_rotation_type(void * value, void * /*clientData*/)
 {
   RotationType * rt = (RotationType *)(value);
   *rt = rotation_type;
