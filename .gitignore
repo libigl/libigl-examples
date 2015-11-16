@@ -27,3 +27,4 @@ principal_curvature/curvature
 skeleton-builder/skeleton_builder
 skeleton-poser/skeleton-poser
 *.pyc
+*/build/*
