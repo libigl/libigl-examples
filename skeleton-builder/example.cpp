@@ -39,7 +39,6 @@
 #include <igl/writeOBJ.h>
 #include <igl/writeOFF.h>
 #include <igl/writeTGF.h>
-#include <igl/anttweakbar/ReAntTweakBar.h>
 #include <igl/unproject_in_mesh.h>
 
 #include <Eigen/Core>
@@ -126,9 +125,6 @@ Eigen::Quaterniond animation_to_quat;
 int width,height;
 Eigen::Vector4f light_pos(-0.1,-0.1,0.9,0);
 
-#define REBAR_NAME "temp.rbr"
-igl::anttweakbar::ReTwBar rebar;
-
 void push_undo()
 {
   undo_stack.push(s);
@@ -137,17 +133,13 @@ void push_undo()
 }
 
 // No-op setter, does nothing
-void TW_CALL no_op(const void * /*value*/, void * /*clientData*/)
-{
-}
-
-void TW_CALL set_rotation_type(const void * value, void * /*clientData*/)
+void set_rotation_type(const RotationType & value)
 {
   using namespace Eigen;
   using namespace std;
   using namespace igl;
   const RotationType old_rotation_type = rotation_type;
-  rotation_type = *(const RotationType *)(value);
+  rotation_type = value;
   if(rotation_type == ROTATION_TYPE_TWO_AXIS_VALUATOR_FIXED_UP &&
     old_rotation_type != ROTATION_TYPE_TWO_AXIS_VALUATOR_FIXED_UP)
   {
@@ -159,19 +151,12 @@ void TW_CALL set_rotation_type(const void * value, void * /*clientData*/)
     is_animating = true;
   }
 }
-void TW_CALL get_rotation_type(void * value, void * /*clientData*/)
-{
-  RotationType * rt = (RotationType *)(value);
-  *rt = rotation_type;
-}
 
 void reshape(int width, int height)
 {
   ::width = width;
   ::height = height;
   glViewport(0,0,width,height);
-  // Send the new window size to AntTweakBar
-  TwWindowSize(width, height);
   camera.m_aspect = (double)width/(double)height;
 }
 
@@ -374,7 +359,6 @@ void display()
 
   igl::opengl::report_gl_error();
 
-  TwDraw();
   glutSwapBuffers();
   if(is_animating)
   {
@@ -382,21 +366,13 @@ void display()
   }
 }
 
-void mouse_wheel(int wheel, int direction, int mouse_x, int mouse_y)
+void mouse_wheel(int wheel, int direction, int /*x*/, int /*y*/)
 {
   using namespace std;
   using namespace igl;
   using namespace Eigen;
   GLint viewport[4];
   glGetIntegerv(GL_VIEWPORT,viewport);
-  if(wheel == 0 && TwMouseMotion(mouse_x, viewport[3] - mouse_y))
-  {
-    static double mouse_scroll_y = 0;
-    const double delta_y = 0.125*direction;
-    mouse_scroll_y += delta_y;
-    TwMouseWheel(mouse_scroll_y);
-    return;
-  }
   push_undo();
 
   if(wheel==0)
@@ -500,7 +476,6 @@ void mouse(int glutButton, int glutState, int mouse_x, int mouse_y)
   using namespace std;
   using namespace Eigen;
   using namespace igl;
-  bool tw_using = TwEventMouseButtonGLUT(glutButton,glutState,mouse_x,mouse_y);
   const int mod = (glutButton <=2 ? glutGetModifiers() : 0);
   const bool option_down = mod & GLUT_ACTIVE_ALT;
   const bool shift_down = mod & GLUT_ACTIVE_SHIFT;
@@ -525,7 +500,6 @@ void mouse(int glutButton, int glutState, int mouse_x, int mouse_y)
         case 0:
           new_leaf_on_drag = false;
           new_root_on_drag = false;
-          if(!tw_using)
           {
             down_x = mouse_x;
             down_y = mouse_y;
@@ -728,7 +702,6 @@ void init_relative()
   Vmid = 0.5*(Vmax + Vmin);
   centroid(V,F,Vcen);
   bbd = (Vmax-Vmin).norm();
-  cout<<"bbd: "<<bbd<<endl;
   camera.push_away(2);
 }
 
@@ -837,7 +810,7 @@ bool save()
   }
 }
 
-void key(unsigned char key, int mouse_x, int mouse_y)
+void key(unsigned char key, int /*x*/, int /*y*/)
 {
   using namespace std;
   using namespace igl;
@@ -849,7 +822,6 @@ void key(unsigned char key, int mouse_x, int mouse_y)
   {
     // ESC
     case char(27):
-      rebar.save(REBAR_NAME);
     // ^C
     case char(3):
       exit(0);
@@ -935,6 +907,18 @@ void key(unsigned char key, int mouse_x, int mouse_y)
     {
       push_undo();
       s.sel.resize(0,1);
+      break;
+    }
+    case 'L':
+    case 'l':
+    {
+      wireframe = !wireframe;
+      break;
+    }
+    case 'O':
+    case 'o':
+    {
+      skeleton_on_top = !skeleton_on_top;
       break;
     }
     case 'P':
@@ -1064,8 +1048,41 @@ void key(unsigned char key, int mouse_x, int mouse_y)
         camera.orbit(q.conjugate());
       }
       break;
+    case '[':
+    case ']':
+    {
+      if(rotation_type == ROTATION_TYPE_IGL_TRACKBALL)
+      {
+        set_rotation_type(ROTATION_TYPE_TWO_AXIS_VALUATOR_FIXED_UP);
+      }else
+      {
+        set_rotation_type(ROTATION_TYPE_IGL_TRACKBALL);
+      }
+      break;
+    }
+    case '{':
+    {
+      alpha = std::max(std::min(alpha-0.1,1.),0.);
+      break;
+    }
+    case '}':
+    {
+      alpha = std::max(std::min(alpha+0.1,1.),0.);
+      break;
+    }
+    case '<':
+    case '>':
+    {
+      if(skel_style == SKEL_STYLE_TYPE_3D)
+      {
+        skel_style = SKEL_STYLE_TYPE_VECTOR_GRAPHICS;
+      }else
+      {
+        skel_style = SKEL_STYLE_TYPE_3D;
+      }
+      break;
+    }
     default:
-      if(!TwEventKeyboardGLUT(key,mouse_x,mouse_y))
       {
         cout<<"Unknown key command: "<<key<<" "<<int(key)<<endl;
       }
@@ -1105,22 +1122,32 @@ int main(int argc, char * argv[])
   }
 
   // print key commands
-  cout<<"[Click] and [drag]     Create bone (or select node) and reposition."<<endl;
-  cout<<"⇧ +[Click] and [drag]  Select node (or create one) and _pull out_ new bone."<<endl;
-  cout<<"⌥ +[Click] and [drag]  Rotate secene."<<endl;
-  cout<<"⌫                      Delete selected node(s) and incident bones."<<endl;
-  cout<<"A,a                    Select all."<<endl;
-  cout<<"D,d                    Deselect all."<<endl;
-  cout<<"C,c                    Snap close nodes."<<endl;
-  cout<<"P,p                    Split \"parent\" bone(s) of selection by creating new node(s)."<<endl;
-  cout<<"R,r                    Breadth first search at selection to redirect skeleton into tree."<<endl;
-  cout<<"S,s                    Save current skeleton to output .tgf file."<<endl;
-  cout<<"U,u                    Project then igl::opengl2::unproject inside mesh (as if dragging each by ε)."<<endl;
-  cout<<"Y,Y                    Symmetrize selection over plane through object centroid and right vector."<<endl;
-  cout<<"Z,z                    Snap to canonical view."<<endl;
-  cout<<"⌘ Z                    Undo."<<endl;
-  cout<<"⇧ ⌘ Z                  Redo."<<endl;
-  cout<<"^C,ESC                 Exit (without saving)."<<endl;
+  cout<<R"(
+   [Click] and [drag]  Create bone (or select node) and reposition.
+⇧ +[Click] and [drag]  Select node (or create one) and _pull out_ new bone.
+⌥ +[Click] and [drag]  Rotate secene.
+                    ⌫  Delete selected node(s) and incident bones.
+                  A,a  Select all.
+                  D,d  Deselect all.
+                  C,c  Snap close nodes.
+                  P,p  Split \"parent\" bone(s) of selection by creating new
+                       node(s).
+                  R,r  Breadth first search at selection to redirect skeleton
+                       into tree.
+                  S,s  Save current skeleton to output .tgf file.
+                  U,u  Project then igl::opengl2::unproject inside mesh (as if
+                       dragging each by ε).
+                  Y,Y  Symmetrize selection over plane through object centroid
+                       and right vector.
+                  Z,z  Snap to canonical view.
+                  ⌘ Z  Undo.
+                ⇧ ⌘ Z  Redo.
+                  [,]  Toggle rotation type: fixed up vs. trackball.
+                  {,}  Decrease, increase alpha of model
+                  <,>  Toggle skeleton visualization type: 3d maya-style vs.
+                       vector graphics
+               ^C,ESC  Exit (without saving).
+)";
 
   string dir,_1,_2,name;
   read_triangle_mesh(filename,V,F,dir,_1,_2,name);
@@ -1147,28 +1174,6 @@ int main(int argc, char * argv[])
 
   // Init glut
   glutInit(&argc,argv);
-  if( !TwInit(TW_OPENGL, NULL) )
-  {
-    // A fatal error occured
-    fprintf(stderr, "AntTweakBar initialization failed: %s\n", TwGetLastError());
-    return 1;
-  }
-  // Create a tweak bar
-  rebar.TwNewBar("TweakBar");
-  rebar.TwAddVarRW("camera_rotation", TW_TYPE_QUAT4D,
-    camera.m_rotation_conj.coeffs().data(), "open readonly=true");
-  TwType RotationTypeTW = igl::anttweakbar::ReTwDefineEnumFromString("RotationType",
-    "igl_trackball,two-a...-fixed-up");
-  rebar.TwAddVarCB( "rotation_type", RotationTypeTW,
-    set_rotation_type,get_rotation_type,NULL,"keyIncr=] keyDecr=[");
-  rebar.TwAddVarRW("skeleton_on_top", TW_TYPE_BOOLCPP,&skeleton_on_top,"key=O");
-  rebar.TwAddVarRW("wireframe", TW_TYPE_BOOLCPP,&wireframe,"key=l");
-  TwType SkelStyleTypeTW = igl::anttweakbar::ReTwDefineEnumFromString("SkelStyleType",
-    "3d,vector-graphics");
-  rebar.TwAddVarRW("style",SkelStyleTypeTW,&skel_style,"");
-  rebar.TwAddVarRW("alpha",TW_TYPE_DOUBLE,&alpha,
-    "keyIncr=} keyDecr={ min=0 max=1 step=0.1");
-  rebar.load(REBAR_NAME);
 
   // Init antweakbar
   glutInitDisplayString( "rgba depth double samples>=8 ");
@@ -1179,7 +1184,6 @@ int main(int argc, char * argv[])
   glutKeyboardFunc(key);
   glutMouseFunc(mouse);
   glutMotionFunc(mouse_drag);
-  glutPassiveMotionFunc((GLUTmousemotionfun)TwEventMouseMotionGLUT);
   glutMainLoop();
 
   return 0;
