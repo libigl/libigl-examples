@@ -40,8 +40,7 @@
 #include <igl/writeOFF.h>
 #include <igl/writeTGF.h>
 #include <igl/anttweakbar/ReAntTweakBar.h>
-#include <igl/embree/EmbreeIntersector.h>
-#include <igl/embree/unproject_in_mesh.h>
+#include <igl/unproject_in_mesh.h>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -129,7 +128,6 @@ Eigen::Vector4f light_pos(-0.1,-0.1,0.9,0);
 
 #define REBAR_NAME "temp.rbr"
 igl::anttweakbar::ReTwBar rebar;
-igl::embree::EmbreeIntersector ei;
 
 void push_undo()
 {
@@ -674,8 +672,8 @@ void mouse_drag(int mouse_x, int mouse_y)
       const int nc = s.C.rows();
       Vector3d obj;
 
-      int nhits = igl::embree::unproject_in_mesh(
-          pos,model,proj,viewport,ei,obj);
+      int nhits = igl::unproject_in_mesh(
+          pos,model,proj,viewport,V,F,obj);
 
       if(nhits == 0)
       {
@@ -696,7 +694,7 @@ void mouse_drag(int mouse_x, int mouse_y)
     }
     double z = 0;
     Vector3d obj,win;
-    int nhits = igl::embree::unproject_in_mesh(pos,model,proj,viewport,ei,obj);
+    int nhits = igl::unproject_in_mesh(pos,model,proj,viewport,V,F,obj);
     igl::opengl2::project(obj,win);
     z = win(2);
 
@@ -1028,7 +1026,7 @@ void key(unsigned char key, int mouse_x, int mouse_y)
         Eigen::Vector4f viewport;
         igl::opengl2::model_proj_viewport(model,proj,viewport);
         Eigen::Vector2f pos(P(0),P(1));
-        int nhits = igl::embree::unproject_in_mesh(pos,model,proj,viewport,ei,obj);
+        int nhits = igl::unproject_in_mesh(pos,model,proj,viewport,V,F,obj);
         if(nhits > 0)
         {
           s.C.row(c) = obj;
@@ -1146,7 +1144,6 @@ int main(int argc, char * argv[])
   }
 
   init_relative();
-  ei.init(V.cast<float>(),F.cast<int>());
 
   // Init glut
   glutInit(&argc,argv);
