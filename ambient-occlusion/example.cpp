@@ -19,8 +19,13 @@
 #include <igl/matlab_format.h>
 #include <igl/anttweakbar/ReAntTweakBar.h>
 #include <igl/pathinfo.h>
+#ifdef IGL_WITH_EMBREE
 #include <igl/embree/EmbreeIntersector.h>
 #include <igl/embree/ambient_occlusion.h>
+#else
+#include <igl/ambient_occlusion.h>
+#include <igl/AABB.h>
+#endif
 
 #ifdef __APPLE__
 #  include <GLUT/glut.h>
@@ -45,14 +50,18 @@ int down_mouse_x,down_mouse_y;
 // Position of light
 float light_pos[4] = {0.1,0.1,-0.9,0};
 // Vertex positions, normals, colors and centroid
-Eigen::MatrixXd V,N,C,mid;
+Eigen::MatrixXf V,N,C,mid;
 // Faces
 Eigen::MatrixXi F;
 // Bounding box diagonal length
 double bbd;
+#ifdef IGL_WITH_EMBREE
 igl::embree::EmbreeIntersector ei;
+#else
+igl::AABB<Eigen::MatrixXf,3> aabb;
+#endif
 // Running ambient occlusion
-Eigen::VectorXd S;
+Eigen::VectorXf S;
 int tot_num_samples = 0;
 #define REBAR_NAME "temp.rbr"
 igl::anttweakbar::ReTwBar rebar; // Pointer to the tweak bar
@@ -154,13 +163,22 @@ void display()
       S.resize(V.rows());
       S.setZero();
     }
-    VectorXd Si;
+    VectorXf Si;
     const int num_samples = 20;
+    const double t_before = igl::get_seconds();
+#ifdef IGL_WITH_EMBREE
     igl::embree::ambient_occlusion(ei,V,N,num_samples,Si);
+#else
+    igl::ambient_occlusion(aabb,V,F,V,N,num_samples,Si);
+#endif
+
     S *= (double)tot_num_samples;
     S += Si*(double)num_samples;
     tot_num_samples += num_samples;
     S /= (double)tot_num_samples;
+    const double rays_per_sec = 
+      double(num_samples*V.rows())/(igl::get_seconds()-t_before);
+    cout<<int(rays_per_sec)<<" rays/sec"<<endl;
   }
 
   // Convert to 1-intensity
@@ -204,7 +222,7 @@ void display()
   // Draw the model
   // Set material properties
   glEnable(GL_COLOR_MATERIAL);
-  igl::opengl2::draw_mesh(V,F,N,C);
+  igl::opengl2::draw_mesh(V.cast<double>(),F,N.cast<double>(),C.cast<double>());
 
   pop_object();
 
@@ -375,7 +393,11 @@ int main(int argc, char * argv[])
   bbd = (V.colwise().maxCoeff() - V.colwise().minCoeff()).maxCoeff();
 
   // Init embree
+#ifdef IGL_WITH_EMBREE
   ei.init(V.cast<float>(),F.cast<int>());
+#else
+  aabb.init(V,F);
+#endif
 
   // Init glut
   glutInit(&argc,argv);

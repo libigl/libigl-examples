@@ -13,8 +13,15 @@ include_directories( "${EIGEN_INCLUDE_DIR}" )
 # Must be found before trying to find libraries in libigl/external
 find_package(LIBIGL REQUIRED)
 include_directories( "${LIBIGL_INCLUDE_DIR}" )
-find_package(EMBREE REQUIRED)
-include_directories( "${EMBREE_INCLUDE_DIR}" )
+find_package(EMBREE QUIET)
+
+if(EMBREE_FOUND)
+  include_directories( "${EMBREE_INCLUDE_DIR}" )
+  add_subdirectory("${EMBREE_INCLUDE_DIR}/../" "embree")    
+  list(APPEND LIBS "embree")
+  add_definitions(-DIGL_WITH_EMBREE)
+endif(EMBREE_FOUND)
+
 find_package(ANTTWEAKBAR REQUIRED)
 include_directories( ${ANT_TWEAK_BAR_INCLUDE_DIR} )
 find_package(OpenGL REQUIRED)
@@ -31,10 +38,9 @@ list(APPEND LIBS
   ${LIBIGL_LIBRARIES} 
   ${OPENGL_LIBRARIES} 
   ${GLUT_LIBRARIES}
-  ${EMBREE_LIBRARIES}
   ${ANT_TWEAK_BAR_LIBRARY}
 )
 
 FILE(GLOB SRCFILES *.cpp)
-add_executable(skeleton_builder ${SRCFILES})
-target_link_libraries(skeleton_builder ${LIBS})
+add_executable(ambient_occlusion ${SRCFILES})
+target_link_libraries(ambient_occlusion ${LIBS})
