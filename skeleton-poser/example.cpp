@@ -11,6 +11,7 @@
 #include <igl/get_seconds.h>
 #include <igl/lbs_matrix.h>
 #include <igl/material_colors.h>
+#include <igl/matlab_format.h>
 #include <igl/next_filename.h>
 #include <igl/normalize_row_sums.h>
 #include <igl/pathinfo.h>
@@ -18,9 +19,12 @@
 #include <igl/quat_to_mat.h>
 #include <igl/readDMAT.h>
 #include <igl/readTGF.h>
+#include <igl/readBF.h>
 #include <igl/read_triangle_mesh.h>
 #include <igl/remove_unreferenced.h>
 #include <igl/snap_to_canonical_view_quat.h>
+#include <igl/slice.h>
+#include <igl/sortrows.h>
 #include <igl/snap_to_fixed_up.h>
 #include <igl/trackball.h>
 #include <igl/two_axis_valuator_fixed_up.h>
@@ -956,6 +960,7 @@ int main(int argc, char * argv[])
 
   string dir,_1,_2,name;
   read_triangle_mesh(filename,V,F,dir,_1,_2,name);
+  init_relative();
 
   if(output_weights_filename.size() == 0)
   {
@@ -975,7 +980,64 @@ int main(int argc, char * argv[])
   }
 
   // Read in skeleton and precompute hierarchy
-  readTGF(skel_filename,C,BE);
+  {
+    string d,b,e,f;
+    pathinfo(skel_filename,d,b,e,f);
+    // Convert extension to lower case
+    std::transform(e.begin(), e.end(), e.begin(), ::tolower);
+    if(e == "tgf")
+    {
+      VectorXi P;
+      // Cage edges and "pseudo-edges" will be ignored
+      MatrixXd Ctemp;
+      MatrixXi CE,PE,E,BEtemp;
+      readTGF(skel_filename,Ctemp,E,P,BEtemp,CE,PE);
+      // Create small points for each point constraint
+      BE.resize(P.rows()+BEtemp.rows(),2);
+      BE.block(0,0,P.rows(),1) = P;
+      BE.block(0,1,P.rows(),1) = 
+        Ctemp.rows()+VectorXi::LinSpaced(P.rows(),0,P.rows()-1).array();
+      MatrixXi SBEtemp;
+      {
+        VectorXi I;
+        sortrows(BEtemp,true,SBEtemp,I);
+      }
+      BE.block(P.rows(),0,BEtemp.rows(),2) = SBEtemp;
+      MatrixXd CP;
+      igl::slice(Ctemp,P,1,CP);
+      CP.col(2).array() += bbd*0.0001;
+      C.resize(Ctemp.rows()+CP.rows(),3);
+      C.block(0,0,Ctemp.rows(),3) = Ctemp;
+      C.block(Ctemp.rows(),0,CP.rows(),3) = CP;
+    }else if (e == "bf")
+    {
+      Eigen::VectorXi WI,P;
+      Eigen::MatrixXd CWI;
+      readBF(skel_filename,WI,P,C);
+      int num_roots = (P.array() == -1).count();
+      BE.resize(CWI.rows()-num_roots,2);
+      for(int w = 0;w<WI.rows();w++)
+      {
+        // p is an index into BE
+        int p = P(WI(w));
+        if(p != -1)
+        {
+          BE(WI(w),0) = w;
+          BE(WI(w),1) = p;
+        }
+      }
+      // loop over bones again to fix tips
+      for(int b = 0;b<BE.rows();b++)
+      {
+        // Now tip indexes C
+        BE(b,1) = BE(BE(b,1),0);
+      }
+    }else
+    {
+      cout<<REDRUM("Unknown skeleton type: "<<e)<<endl;
+      return EXIT_FAILURE;
+    }
+  }
   // initialize mouse interface
   s.mouse.set_size(BE.rows());
   // Rigid parts (not used)
@@ -990,10 +1052,21 @@ int main(int argc, char * argv[])
   {
     // Read in weights and precompute LBS matrix
     readDMAT(weights_filename,W);
+    cout<<"BE "<<BE.rows()<<endl;
+    cout<<"W "<<W.cols()<<endl;
+    W = W.block(0,W.cols()-BE.rows(),W.rows(),BE.rows()).eval();
   }
+  //normalize W
+  W.array().colwise() /= W.array().rowwise().sum().eval();
+
+
+  cout<<matlab_format(C,"C")<<endl;
+  cout<<matlab_format(BE,"BE")<<endl;
+    writeOBJ("test-mesh.obj",V,F);
+    writeDMAT("test-weights.dmat",W);
+
   lbs_matrix(V,W,M);
 
-  init_relative();
 
   // Init glut
   glutInit(&argc,argv);
