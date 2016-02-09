@@ -19,11 +19,16 @@ find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 
 find_package(CGAL REQUIRED)
+set(CGAL_DONT_OVERRIDE_CMAKE_FLAGS TRUE CACHE BOOL "Force CGAL to maintain CMAKE flags")
 include(${CGAL_USE_FILE})
 # CGAL's monkeying with all of the flags. Rather than change the CGAL_USE_FILE
 # just get ride of this flag.
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   remove_cxx_flag("-stdlib=libc++")
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -Wall -Wextra -Wno-reorder -Wno-unknown-pragmas -msse4.2 -Wno-deprecated-declarations -D__ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES=0 -DNO_2D" )
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 endif()
 
 find_package(MOSEK QUIET)
