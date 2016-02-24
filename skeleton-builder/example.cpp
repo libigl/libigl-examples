@@ -4,6 +4,7 @@
 #include <igl/adjacency_list.h>
 #include <igl/adjacency_matrix.h>
 #include <igl/boundary_conditions.h>
+#include <igl/bone_parents.h>
 #include <igl/centroid.h>
 #include <igl/colon.h>
 #include <igl/opengl2/draw_floor.h>
@@ -22,6 +23,7 @@
 #include <igl/per_face_normals.h>
 #include <igl/opengl2/project.h>
 #include <igl/quat_to_mat.h>
+#include <igl/readBF.h>
 #include <igl/readTGF.h>
 #include <igl/read_triangle_mesh.h>
 #include <igl/remove_unreferenced.h>
@@ -39,6 +41,7 @@
 #include <igl/writeOBJ.h>
 #include <igl/writeOFF.h>
 #include <igl/writeTGF.h>
+#include <igl/writeBF.h>
 #include <igl/unproject_in_mesh.h>
 
 #include <Eigen/Core>
@@ -795,17 +798,77 @@ void symmetrize()
   pop_scene();
 }
 
-bool save()
+bool save(const std::string ext)
 {
   using namespace std;
   using namespace igl;
-  if(writeTGF(output_filename,s.C,s.BE))
+  bool success = false;
+  if(ext == ".tgf")
   {
-    cout<<GREENGIN("Current skeleton written to "+output_filename+".")<<endl;
+    success = writeTGF(output_filename+ext,s.C,s.BE);
+  }else if(ext == ".bf")
+  {
+    using namespace Eigen;
+    VectorXi P;
+    const auto & BE = s.BE;
+    const auto & C = s.C;
+    bone_parents(BE,P);
+    const int n = BE.rows() + (P.array() < 0).count();
+    MatrixXd offsets(n,3);
+    VectorXi WI(n),bfP(n);
+    {
+      int r = BE.rows();
+      for(int b = 0;b<BE.rows();b++)
+      {
+        WI(b) = b;
+        offsets.row(b) = C.row(BE(b,1)) - C.row(BE(b,0));
+        if(P(b)<0)
+        {
+          // root
+          bfP(b) = r;
+          WI(r) = -1;
+          bfP(r) = -1;
+          offsets.row(r) = C.row(BE(b,0));
+          r++;
+        }else
+        {
+          // non-root
+          bfP(b) = P(b);
+        }
+      }
+    }
+    {
+      // remove duplicate roots
+      VectorXi I,J;
+      MatrixXd WIbfPoffsets;
+      unique_rows(
+        (MatrixXd(n,5)<<
+          WI.cast<double>(),
+          bfP.cast<double>(),
+          offsets).finished(),
+        WIbfPoffsets,
+        I,
+        J);
+      WI = WIbfPoffsets.col(0).cast<int>();
+      bfP = WIbfPoffsets.col(1).cast<int>();
+      offsets = WIbfPoffsets.rightCols(3);
+      for(int i = 0;i<WI.rows();i++)
+      {
+        if(bfP(i)>=0)
+        {
+          bfP(i) = J(bfP(i));
+        }
+      }
+    }
+    success = writeBF(output_filename+ext,WI,bfP,offsets);
+  }
+  if(success)
+  {
+    cout<<GREENGIN("Current skeleton written to "+output_filename+ext+".")<<endl;
     return true;
   }else
   {
-    cout<<REDRUM("Writing to "+output_filename+" failed.")<<endl;
+    cout<<REDRUM("Writing to "+output_filename+ext+" failed.")<<endl;
     return false;
   }
 }
@@ -992,9 +1055,13 @@ void key(unsigned char key, int /*x*/, int /*y*/)
       break;
     }
     case 'S':
+    {
+      save(".bf");
+      break;
+    }
     case 's':
     {
-      save();
+      save(".tgf");
       break;
     }
     case 'U':
@@ -1120,13 +1187,20 @@ int main(int argc, char * argv[])
       cerr<<"Usage:"<<endl<<"    ./example input.obj [input/output.tgf]"<<endl;
       cout<<endl<<"Opening default mesh..."<<endl;
   }
+  if(output_filename.size() > 0)
+  {
+    // strip extension
+    std::string d,b,e,f;
+    pathinfo(output_filename,d,b,e,f);
+    output_filename = d+"/"+f;
+  }
 
   // print key commands
   cout<<R"(
    [Click] and [drag]  Create bone (or select node) and reposition.
 ⇧ +[Click] and [drag]  Select node (or create one) and _pull out_ new bone.
 ⌥ +[Click] and [drag]  Rotate secene.
-                    ⌫  Delete selected node(s) and incident bones.
+                   ⌫   Delete selected node(s) and incident bones.
                   A,a  Select all.
                   D,d  Deselect all.
                   C,c  Snap close nodes.
@@ -1134,7 +1208,8 @@ int main(int argc, char * argv[])
                        node(s).
                   R,r  Breadth first search at selection to redirect skeleton
                        into tree.
-                  S,s  Save current skeleton to output .tgf file.
+                    S  Save current skeleton to output .bf file.
+                    s  Save current skeleton to output .tgf file.
                   U,u  Project then igl::opengl2::unproject inside mesh (as if
                        dragging each by ε).
                   Y,Y  Symmetrize selection over plane through object centroid
@@ -1154,20 +1229,33 @@ int main(int argc, char * argv[])
 
   if(output_filename.size() == 0)
   {
-    output_filename = dir+"/"+name+".tgf";
+    output_filename = dir+"/"+name;
   }
 
-  if(file_exists(output_filename.c_str()))
+  for(const std::string ext : {".tgf",".bf"})
   {
-    cout<<YELLOWGIN("Output set to overwrite "<<output_filename)<<endl;
-  }else
-  {
-    cout<<BLUEGIN("Output set to "<<output_filename)<<endl;
+    if(file_exists((output_filename+ext).c_str()))
+    {
+      cout<<YELLOWGIN("Output set to overwrite "<<output_filename+ext)<<endl;
+    }else
+    {
+      cout<<BLUEGIN("Output set to "<<output_filename+ext)<<endl;
+    }
   }
 
   if(skel_filename.length() > 0)
   {
-    readTGF(skel_filename,s.C,s.BE);
+    std::string d,b,e,f;
+    pathinfo(skel_filename,d,b,e,f);
+    if(e == "bf")
+    {
+      VectorXi WI,bfP,P;
+      MatrixXd offsets;
+      readBF(skel_filename,WI,bfP,offsets,s.C,s.BE,P);
+    }else
+    {
+      readTGF(skel_filename,s.C,s.BE);
+    }
   }
 
   init_relative();
