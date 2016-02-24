@@ -1,3 +1,4 @@
+#include "robust_bbw.h"
 #include <igl/Camera.h>
 #include <igl/REDRUM.h>
 #include <igl/STR.h>
@@ -22,6 +23,7 @@
 #include <igl/readBF.h>
 #include <igl/read_triangle_mesh.h>
 #include <igl/remove_unreferenced.h>
+#include <igl/setdiff.h>
 #include <igl/snap_to_canonical_view_quat.h>
 #include <igl/slice.h>
 #include <igl/sortrows.h>
@@ -882,6 +884,7 @@ bool robust_weights(
       return false;
     }
   }
+  cout<<"TV.block ~= V? "<<TV.block(0,0,V.rows(),V.cols()).isApprox(V)<<endl;
   // Finally, tetgen may have still included some insanely small tets.
   // Just ignore these during weight computation (and hope they don't isolate
   // any vertices).
@@ -1015,6 +1018,21 @@ int main(int argc, char * argv[])
       MatrixXd Ctemp;
       MatrixXi CE,PE,E,BEtemp;
       readTGF(skel_filename,Ctemp,E,P,BEtemp,CE,PE);
+      cout<<"E: "<<E.rows()<<endl;
+      cout<<"BE: "<<BE.rows()<<endl;
+      cout<<"P: "<<P.size()<<endl;
+      if(E.rows() > 0 && (BEtemp.rows() == 0 && CE.rows() == 0))
+      {
+        cout<<"legacy"<<endl;
+        // legacy format: all edges are bones, any points not touched by bones
+        // are points
+        BEtemp = E;
+        VectorXi _;
+        igl::setdiff(
+          VectorXi::LinSpaced(C.rows(),0,C.rows()-1).eval(),BEtemp,P,_);
+      }
+      cout<<"BE: "<<BE.rows()<<endl;
+      cout<<"P: "<<P.size()<<endl;
       // Create small points for each point constraint
       BE.resize(P.rows()+BEtemp.rows(),2);
       BE.block(0,0,P.rows(),1) = P;
@@ -1043,6 +1061,9 @@ int main(int argc, char * argv[])
       return EXIT_FAILURE;
     }
   }
+  cout<<"BE: "<<BE.rows()<<endl;
+  cout<<"P: "<<P.size()<<endl;
+
   // initialize mouse interface
   s.mouse.set_size(BE.rows());
   // Rigid parts (not used)
@@ -1052,7 +1073,8 @@ int main(int argc, char * argv[])
   bone_parents(BE,P);
   if(weights_filename.size() == 0)
   {
-    robust_weights(V,F,C,BE,W);
+    //robust_weights(V,F,C,BE,W);
+    robust_bbw(V,F,C,BE,W);
   }else
   {
     // Read in weights and precompute LBS matrix
