@@ -147,7 +147,8 @@ struct PoseAnimation
   bool is_animating = false;
   double DURATION = 2;
   double start_time = 0;
-  RotationList pose;
+  RotationList poseQ;
+  std::vector<Eigen::Vector3d> poseT;
 } panim;
 
 int width,height;
@@ -343,6 +344,7 @@ void display()
   glLineWidth(1.0);
   MatrixXd T;
   RotationList dQ;
+  vector<Vector3d> dT(BE.rows(),Vector3d(0,0,0));
   if(panim.is_animating)
   {
     double t = (get_seconds() - panim.start_time)/panim.DURATION;
@@ -356,16 +358,21 @@ void display()
       return 3.*t*t-2.*t*t*t;
     };
     double f = (t<0.5?ease(2.*t):ease(2.-2.*t));
-    dQ.resize(panim.pose.size());
-    for(int e = 0;e<(int)panim.pose.size();e++)
+    dQ.resize(panim.poseQ.size());
+    dT.resize(panim.poseT.size());
+    assert(panim.poseQ.size() == panim.poseT.size());
+    for(int e = 0;e<(int)panim.poseQ.size();e++)
     {
-      dQ[e] = panim.pose[e].slerp(f,Quaterniond::Identity()).normalized();
+      dQ[e] = panim.poseQ[e].slerp(f,Quaterniond::Identity()).normalized();
+      dT[e] = panim.poseT[e] + f * (Vector3d(0,0,0)-panim.poseT[e]);
     }
   }else
   {
     dQ = s.mouse.rotations();
+    dT = s.mouse.translations();
   }
-  forward_kinematics(C,BE,P,dQ,T);
+
+  forward_kinematics(C,BE,P,dQ,dT,T);
   MatrixXd U = M*T;
   MatrixXd UN;
   per_face_normals(U,F,UN);
@@ -625,6 +632,7 @@ bool save_pose()
   string output_filename;
   next_filename(output_pose_prefix,4,".dmat",output_filename);
   MatrixXd T;
+  cerr<<REDRUM("Warning: only saving pose rotations...")<<endl;
   forward_kinematics(C,BE,P,s.mouse.rotations(),T);
   if(writeDMAT(output_filename,T))
   {
@@ -681,6 +689,7 @@ void key(unsigned char key, int mouse_x, int mouse_y)
   using namespace std;
   using namespace igl;
   using namespace Eigen;
+  using namespace igl::opengl2;
   int mod = glutGetModifiers();
   const bool command_down = GLUT_ACTIVE_COMMAND & mod;
   const bool shift_down = GLUT_ACTIVE_SHIFT & mod;
@@ -696,7 +705,8 @@ void key(unsigned char key, int mouse_x, int mouse_y)
     case 'a':
     {
       panim.is_animating = !panim.is_animating;
-      panim.pose = s.mouse.rotations();
+      panim.poseQ = s.mouse.rotations();
+      panim.poseT = s.mouse.translations();
       panim.start_time = get_seconds();
       break;
     }
@@ -707,16 +717,21 @@ void key(unsigned char key, int mouse_x, int mouse_y)
       s.mouse.clear_selection();
       break;
     }
+    case 'e':
+    {
+      s.mouse.set_widget_mode(MouseController::WIDGET_MODE_ROTATE);
+      break;
+    }
     case 'R':
     {
       push_undo();
-      s.mouse.reset_selected_rotations();
+      s.mouse.reset_selected();
       break;
     }
     case 'r':
     {
       push_undo();
-      s.mouse.reset_rotations();
+      s.mouse.reset();
       break;
     }
     case 'S':
@@ -730,9 +745,13 @@ void key(unsigned char key, int mouse_x, int mouse_y)
       break;
     }
     case 'W':
-    case 'w':
     {
       save_weights();
+      break;
+    }
+    case 'w':
+    {
+      s.mouse.set_widget_mode(MouseController::WIDGET_MODE_TRANSLATE);
       break;
     }
     case 'z':
@@ -944,19 +963,23 @@ int main(int argc, char * argv[])
   }
 
   // print key commands
-  cout<<"[Click] and [drag]     Select a bone/Use onscreen widget to rotate bone."<<endl;
-  cout<<"⌥ +[Click] and [drag]  Rotate secene."<<endl;
-  cout<<"⌫                      Delete selected node(s) and incident bones."<<endl;
-  cout<<"D,d                    Deselect all."<<endl;
-  cout<<"R                      Reset selected rotation."<<endl;
-  cout<<"r                      Reset all rotations."<<endl;
-  cout<<"S                      Save current posed mesh."<<endl;
-  cout<<"s                      Save current skeleton pose."<<endl;
-  cout<<"W,w                    Save current weights."<<endl;
-  cout<<"Z,z                    Snap to canonical view."<<endl;
-  cout<<"⌘ Z                    Undo."<<endl;
-  cout<<"⇧ ⌘ Z                  Redo."<<endl;
-  cout<<"^C,ESC                 Exit (without saving)."<<endl;
+  cout<<R"(
+   [Click] and [drag]  Select a bone/Use onscreen widget to rotate bone.
+⌥ +[Click] and [drag]  Rotate secene.
+                   ⌫   Delete selected node(s) and incident bones.
+                  D,d  Deselect all.
+                    e  Set widget mode to Rotate
+                    R  Reset selected rotation.
+                    r  Reset all rotations.
+                    S  Save current posed mesh.
+                    s  Save current skeleton pose.
+                    W  Save current weights.
+                    w  Set widget mode to translate.
+                  Z,z  Snap to canonical view.
+                  ⌘ Z  Undo.
+                ⇧ ⌘ Z  Redo.
+               ^C,ESC  Exit (without saving).
+)";
 
   string dir,_1,_2,name;
   read_triangle_mesh(filename,V,F,dir,_1,_2,name);
@@ -1011,27 +1034,9 @@ int main(int argc, char * argv[])
       C.block(Ctemp.rows(),0,CP.rows(),3) = CP;
     }else if (e == "bf")
     {
-      Eigen::VectorXi WI,P;
-      Eigen::MatrixXd CWI;
-      readBF(skel_filename,WI,P,C);
-      int num_roots = (P.array() == -1).count();
-      BE.resize(CWI.rows()-num_roots,2);
-      for(int w = 0;w<WI.rows();w++)
-      {
-        // p is an index into BE
-        int p = P(WI(w));
-        if(p != -1)
-        {
-          BE(WI(w),0) = w;
-          BE(WI(w),1) = p;
-        }
-      }
-      // loop over bones again to fix tips
-      for(int b = 0;b<BE.rows();b++)
-      {
-        // Now tip indexes C
-        BE(b,1) = BE(BE(b,1),0);
-      }
+      VectorXi WI,bfP;
+      MatrixXd offsets;
+      readBF(skel_filename,WI,bfP,offsets,C,BE,P);
     }else
     {
       cout<<REDRUM("Unknown skeleton type: "<<e)<<endl;
@@ -1052,18 +1057,10 @@ int main(int argc, char * argv[])
   {
     // Read in weights and precompute LBS matrix
     readDMAT(weights_filename,W);
-    cout<<"BE "<<BE.rows()<<endl;
-    cout<<"W "<<W.cols()<<endl;
     W = W.block(0,W.cols()-BE.rows(),W.rows(),BE.rows()).eval();
   }
   //normalize W
   W.array().colwise() /= W.array().rowwise().sum().eval();
-
-
-  cout<<matlab_format(C,"C")<<endl;
-  cout<<matlab_format(BE,"BE")<<endl;
-    writeOBJ("test-mesh.obj",V,F);
-    writeDMAT("test-weights.dmat",W);
 
   lbs_matrix(V,W,M);
 
