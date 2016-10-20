@@ -30,9 +30,10 @@ bool clean(
     const Eigen::MatrixXd & CV,
     const Eigen::VectorXi & IM)
   {
-    for(int i = 0;i<IM.rows();i++)
+    assert(IM.size() >= CV.rows());
+    for(int i = 0;i<CV.rows();i++)
     {
-      if(IM(i)<V.rows())
+      if(IM(i)<V.rows() && IM(i)>= 0)
       {
         double diff = (V.row(IM(i))-CV.row(i)).norm();
         if(diff>1e-6)
@@ -45,23 +46,22 @@ bool clean(
   {
     MatrixXi _1;
     VectorXi _2;
-#ifdef VERBOSE
-    cerr<<"remesh_self_intersections"<<endl;
-#endif
+    cout<<"clean: remesh_self_intersections"<<endl;
     remesh_self_intersections(V,F,{false,false,false},CV,CF,_1,_2,IM);
     for_each(CF.data(),CF.data()+CF.size(),[&IM](int & a){a=IM(a);});
-    validate_IM(V,CV,IM);
-    cout<<"remove_unreferenced"<<endl;
+    //validate_IM(V,CV,IM);
+    cout<<"clean: remove_unreferenced"<<endl;
     {
       MatrixXi oldCF = CF;
       unique_simplices(oldCF,CF);
     }
     MatrixXd oldCV = CV;
     MatrixXi oldCF = CF;
-    VectorXi newIM;
-    remove_unreferenced(oldCV,oldCF,CV,CF,newIM);
-    for_each(IM.data(),IM.data()+IM.size(),[&newIM](int & a){a=newIM(a);});
-    validate_IM(V,CV,IM);
+    VectorXi nIM;
+    remove_unreferenced(oldCV,oldCF,CV,CF,nIM);
+    // reindex nIM through IM
+    for_each(IM.data(),IM.data()+IM.size(),[&nIM](int & a){a=a>=0?nIM(a):a;});
+    //validate_IM(V,CV,IM);
   }
   MatrixXd TV;
   MatrixXi TT;
@@ -70,12 +70,11 @@ bool clean(
     // c  convex hull
     // Y  no boundary steiners
     // p  polygon input
-#ifdef VERBOSE
-    cerr<<"tetrahedralize"<<endl;
-    //writeOBJ("CVCF.obj",CV,CF);
-#endif
+    // T1e-16  sometimes helps tetgen
+    cout<<"clean: tetrahedralize"<<endl;
+    writeOBJ("CVCF.obj",CV,CF);
     CDTParam params;
-    params.flags = "CY";
+    params.flags = "CYT1e-16";
     params.use_bounding_box = true;
     if(cdt(CV,CF,params,TV,TT,_1) != 0)
     {
@@ -88,9 +87,7 @@ bool clean(
     MatrixXd BC;
     barycenter(TV,TT,BC);
     VectorXd W;
-#ifdef VERBOSE
-    cerr<<"winding_number"<<endl;
-#endif
+    cout<<"clean: winding_number"<<endl;
     winding_number(V,F,BC,W);
     W = W.array().abs();
     const double thresh = 0.5;
@@ -107,21 +104,22 @@ bool clean(
     assert(c==count);
     boundary_facets(CT,CF);
     //writeMESH("CVCTCF.mesh",TV,CT,CF);
-    cout<<"remove_unreferenced"<<endl;
+    cout<<"clean: remove_unreferenced"<<endl;
     // Force all original vertices to be referenced
     MatrixXi FF = F;
     for_each(FF.data(),FF.data()+FF.size(),[&IM](int & a){a=IM(a);});
     int ncf = CF.rows();
     MatrixXi ref(ncf+FF.rows(),3);
     ref<<CF,FF;
-    VectorXi newIM;
-    remove_unreferenced(TV,ref,CV,CF,newIM);
+    VectorXi nIM;
+    remove_unreferenced(TV,ref,CV,CF,nIM);
     // Only keep boundary faces
     CF.conservativeResize(ncf,3);
-    cout<<"IM.minCoeff(): "<<IM.minCoeff()<<endl;
-    for_each(IM.data(),IM.data()+IM.size(),[&newIM](int & a){a=newIM(a);});
-    cout<<"IM.minCoeff(): "<<IM.minCoeff()<<endl;
-    validate_IM(V,CV,IM);
+    cout<<"clean: IM.minCoeff(): "<<IM.minCoeff()<<endl;
+    // reindex nIM through IM
+    for_each(IM.data(),IM.data()+IM.size(),[&nIM](int & a){a=a>=0?nIM(a):a;});
+    cout<<"clean: IM.minCoeff(): "<<IM.minCoeff()<<endl;
+    //validate_IM(V,CV,IM);
   }
   return true;
 }

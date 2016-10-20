@@ -8,8 +8,11 @@
 #include <igl/boundary_conditions.h>
 #include <igl/normalize_row_sums.h>
 #include <igl/volume.h>
-#include <igl/bbw/bbw.h>
+#include <igl/bbw.h>
 #include <igl/REDRUM.h>
+#ifdef WITH_MATLAB
+#include <igl/matlab/MatlabWorkspace.h>
+#endif
 #include <iostream>
 
 bool robust_bbw(
@@ -21,7 +24,6 @@ bool robust_bbw(
 {
   using namespace igl;
   using namespace igl::copyleft::tetgen;
-  using namespace igl::bbw;
   using namespace Eigen;
   using namespace std;
   // clean mesh
@@ -32,6 +34,15 @@ bool robust_bbw(
   {
     return false;
   }
+
+#ifdef WITH_MATLAB
+  igl::matlab::MatlabWorkspace mw;
+  mw.save(V,"V");
+  mw.save_index(F,"F");
+  mw.save(CV,"CV");
+  mw.save_index(CF,"CF");
+  mw.save_index(IM,"IM");
+#endif
 
   MatrixXd TV;
   MatrixXi TT;
@@ -83,34 +94,35 @@ bool robust_bbw(
   // Default bbw data and flags
   BBWData bbw_data;
   bbw_data.verbosity = 1;
-#ifdef IGL_NO_MOSEK
-  bbw_data.qp_solver = QP_SOLVER_IGL_ACTIVE_SET;
   bbw_data.active_set_params.max_iter = 10;
-#else
-  bbw_data.mosek_data.douparam[MSK_DPAR_INTPNT_TOL_REL_GAP]=1e-10;
-  bbw_data.qp_solver = QP_SOLVER_MOSEK;
-#endif
 #ifdef VERBOSE
   cerr<<"bbw"<<endl;
 #endif
   // Weights matrix
-  if(!igl::bbw::bbw(TV,TT,b,bc,bbw_data,W))
+  Eigen::MatrixXd TW;
+  if(!igl::bbw(TV,TT,b,bc,bbw_data,TW))
   {
     return false;
   }
-  //writeDMAT("W.dmat",W);
-  //writeDMAT("IM.dmat",(IM.array()+1).eval());
   // Normalize weights to sum to one
-  normalize_row_sums(W,W);
-  MatrixXd oldW = W;
-  for(int i = 0;i<IM.size();i++)
+  normalize_row_sums(TW,TW);
+
+#ifdef WITH_MATLAB
+  mw.save(TV,"TV");
+  mw.save_index(TT,"TT");
+  mw.save(TW,"TW");
+#endif
+
+  W.resize(V.rows(),TW.cols());
+  for(int i = 0;i<V.rows();i++)
   {
-    if(IM(i)<V.rows())
-    {
-      W.row(IM(i)) = oldW.row(i);
-    }
+    W.row(i) = TW.row(IM(i));
   }
-  // keep first #V weights
-  W.conservativeResize(V.rows(),W.cols());
+
+#ifdef WITH_MATLAB
+  mw.save(W,"W");
+  mw.write("robust_bbw.mat");
+#endif
+
   return true;
 }

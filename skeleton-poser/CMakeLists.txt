@@ -8,6 +8,9 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 endif()
 
+option(WITH_MATLAB "WITH_MATLAB" OFF)
+
+
 find_package(EIGEN REQUIRED)
 include_directories( "${EIGEN_INCLUDE_DIR}" )
 # Must be found before trying to find libraries in libigl/external
@@ -42,6 +45,12 @@ else(MOSEK_FOUND)
   set(MOSEK_LIBRARIES "")
 endif(MOSEK_FOUND)
 
+if(WITH_MATLAB)
+  find_package(MATLAB REQUIRED)
+  include_directories( ${MATLAB_INCLUDE_DIR} )
+  add_definitions(-DWITH_MATLAB)
+endif()
+
 find_package(TETGEN REQUIRED)
 include_directories( ${TETGEN_INCLUDE_DIR})
 
@@ -56,6 +65,7 @@ set(LIBS
   ${LIBIGL_LIBRARIES} 
   ${OPENGL_LIBRARIES} 
   ${MOSEK_LIBRARIES} 
+  ${MATLAB_LIBRARIES} 
   ${GLUT_LIBRARIES}
   ${ANT_TWEAK_BAR_LIBRARY}
 )

@@ -40,7 +40,7 @@
 
 #include <igl/anttweakbar/ReAntTweakBar.h>
 
-#include <igl/bbw/bbw.h>
+#include <igl/bbw.h>
 
 #include <igl/copyleft/cgal/remesh_self_intersections.h>
 
@@ -915,18 +915,11 @@ bool robust_weights(
   }
   // compute BBW
   // Default bbw data and flags
-  igl::bbw::BBWData bbw_data;
+  igl::BBWData bbw_data;
   bbw_data.verbosity = 1;
-#ifdef IGL_NO_MOSEK
-  bbw_data.qp_solver = igl::bbw::QP_SOLVER_IGL_ACTIVE_SET;
   bbw_data.active_set_params.max_iter = 4;
-#else
-  cout<<"using mosek..."<<endl;
-  bbw_data.mosek_data.douparam[MSK_DPAR_INTPNT_TOL_REL_GAP]=1e-14;
-  bbw_data.qp_solver = igl::bbw::QP_SOLVER_MOSEK;
-#endif
   // Weights matrix
-  if(!igl::bbw::bbw(TV,TT,b,bc,bbw_data,W))
+  if(!igl::bbw(TV,TT,b,bc,bbw_data,W))
   {
     return false;
   }

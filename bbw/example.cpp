@@ -10,7 +10,7 @@
 #include <igl/writeDMAT.h>
 #include <igl/writeMESH.h>
 #include <igl/normalize_row_sums.h>
-#include <igl/bbw/bbw.h>
+#include <igl/bbw.h>
 #include <igl/tetgen/mesh_with_skeleton.h>
 
 #include <Eigen/Dense>
@@ -255,12 +255,10 @@ int main(int argc, char * argv[])
 
   // compute BBW 
   // Default bbw data and flags
-  igl::bbw::BBWData bbw_data;
-  bbw_data.qp_solver = igl::bbw::QP_SOLVER_IGL_ACTIVE_SET;
-  //bbw_data.qp_solver = igl::bbw::QP_SOLVER_MOSEK;
+  igl::BBWData bbw_data;
   // Weights matrix
   MatrixXd W;
-  if(!igl::bbw::bbw(VV,TT,b,bc,bbw_data,W))
+  if(!igl::bbw(VV,TT,b,bc,bbw_data,W))
   {
     return 1;
   }

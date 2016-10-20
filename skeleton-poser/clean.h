@@ -9,8 +9,8 @@
 // Outputs:
 //   CV  #CV by 3 list of mesh vertex positions
 //   CF  #CF by 3 list of mesh face indices into CF
-//   IM  #CV list of indices into V so that if IM(i)<#V then V(IM(i),:) =
-//     CV(i,:)
+//   IM  >=#CV list of indices into V, so that (CV,IM(F)) produces the same
+//     mesh as (V,F)
 // Returns true iff success.
 //
 bool clean(
