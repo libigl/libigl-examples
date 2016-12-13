@@ -411,6 +411,7 @@ void display()
   igl::opengl::report_gl_error();
 
   TwDraw();
+  glFlush();
   glutSwapBuffers();
   if(canim.is_animating || panim.is_animating)
   {
