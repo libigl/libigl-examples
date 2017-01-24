@@ -1,5 +1,7 @@
 #include <igl/read_triangle_mesh.h>
-#include <igl/write_triangle_mesh.h>
+//#include <igl/write_triangle_mesh.h>
+// Use igl::xml version to support .dae collada files, too
+#include <igl/xml/write_triangle_mesh.h>
 #include <string>
 #include <iostream>
 int main(int argc, char * argv[])
@@ -26,6 +28,6 @@ USAGE:
     return EXIT_FAILURE;
   }
   return 
-    read_triangle_mesh(in,V,F) && write_triangle_mesh(out,V,F,false) ? 
+    read_triangle_mesh(in,V,F) && xml::write_triangle_mesh(out,V,F,false) ? 
     EXIT_SUCCESS : EXIT_FAILURE;
 }
