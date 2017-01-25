@@ -9,7 +9,6 @@
 #include <igl/opengl/init_render_to_texture.h>
 #include <igl/jet.h>
 #include <igl/per_face_normals.h>
-#include <igl/randperm.h>
 #include <igl/read_triangle_mesh.h>
 #include <igl/opengl/report_gl_error.h>
 #include <igl/rgb_to_hsv.h>

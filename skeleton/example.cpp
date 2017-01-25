@@ -28,7 +28,7 @@
 #include <igl/writeOBJ.h>
 #include <igl/writeOFF.h>
 #include <igl/anttweakbar/ReAntTweakBar.h>
-#include <igl/bbw/bbw.h>
+#include <igl/bbw.h>
 #include <igl/tetgen/mesh_with_skeleton.h>
 
 #include <Eigen/Core>
@@ -571,10 +571,10 @@ bool init_weights(
 
   // compute BBW
   // Default bbw data and flags
-  igl::bbw::BBWData bbw_data;
+  igl::BBWData bbw_data;
   bbw_data.active_set_params.max_iter = 4;
   // Weights matrix
-  if(!igl::bbw::bbw(VV,TT,b,bc,bbw_data,W))
+  if(!igl::bbw(VV,TT,b,bc,bbw_data,W))
   {
     return false;
   }

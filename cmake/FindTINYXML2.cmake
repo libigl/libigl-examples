@@ -8,6 +8,7 @@
 FIND_PATH(TINYXML2_INCLUDE_DIR tinyxml2.h
    /usr/include
    /usr/local/include
+   ${LIBIGL_INCLUDE_DIR}/../external/tinyxml2/
    ${PROJECT_SOURCE_DIR}/../libigl/external/tinyxml2/
    ${PROJECT_SOURCE_DIR}/../../external/tinyxml2/
    ${PROJECT_SOURCE_DIR}/../external/tinyxml2/

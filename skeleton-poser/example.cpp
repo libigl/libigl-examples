@@ -1,5 +1,6 @@
 #include "robust_bbw.h"
 #include <igl/Camera.h>
+#include <igl/LinSpaced.h>
 #include <igl/REDRUM.h>
 #include <igl/STR.h>
 #include <igl/barycenter.h>
@@ -43,8 +44,6 @@
 #include <igl/bbw.h>
 
 #include <igl/copyleft/cgal/remesh_self_intersections.h>
-
-#include <igl/opengl/report_gl_error.h>
 
 #include <igl/opengl2/MouseController.h>
 #include <igl/opengl2/draw_beach_ball.h>
@@ -407,8 +406,6 @@ void display()
   }
   pop_object();
   pop_scene();
-
-  igl::opengl::report_gl_error();
 
   TwDraw();
   glFlush();
@@ -1023,7 +1020,7 @@ int main(int argc, char * argv[])
         BEtemp = E;
         VectorXi _;
         igl::setdiff(
-          VectorXi::LinSpaced(C.rows(),0,C.rows()-1).eval(),BEtemp,P,_);
+          igl::LinSpaced<VectorXi>(C.rows(),0,C.rows()-1).eval(),BEtemp,P,_);
       }
       cout<<"BE: "<<BE.rows()<<endl;
       cout<<"P: "<<P.size()<<endl;
@@ -1031,7 +1028,7 @@ int main(int argc, char * argv[])
       BE.resize(P.rows()+BEtemp.rows(),2);
       BE.block(0,0,P.rows(),1) = P;
       BE.block(0,1,P.rows(),1) = 
-        Ctemp.rows()+VectorXi::LinSpaced(P.rows(),0,P.rows()-1).array();
+        Ctemp.rows()+igl::LinSpaced<VectorXi>(P.rows(),0,P.rows()-1).array();
       MatrixXi SBEtemp;
       {
         VectorXi I;
