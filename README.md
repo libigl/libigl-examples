@@ -1,3 +1,11 @@
+> # ⚠️⚠️⚠️⚠️⚠️ ARCHIVED ⚠️⚠️⚠️⚠️⚠️
+> This repository has been archived and will not be maintained. You may be interested in:
+> - https://libigl.github.io/tutorial/
+> - https://github.com/libigl/libigl-example-project
+> - https://github.com/alecjacobson/gp-cli
+>
+
+
 # libigl-examples
 
 This repository contains examples applications that use
